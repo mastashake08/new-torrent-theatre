@@ -10,8 +10,8 @@
       <v-layout row wrap>
           <v-flex xs12 md6 v-for="m in movies" :key="m.id">
               <v-card v-if="m.description_full" :loading="loading">
-                  <v-card-title>{{m.title}}</v-card-title>
-                  <v-card-subtitle>{{m.genres[0]}} | Runtime - {{m.runtime}} minutes | Rated {{m.mpa_rating}}</v-card-subtitle>
+                  <v-card-title>{{m.title}} - {{m.year}}</v-card-title>
+                  <v-card-subtitle>{{m.genres[0]}} | Runtime - {{m.runtime}} minutes  <span v-if="m.mpa_rating !=''">| Rated {{m.mpa_rating}}</span> | {{m.torrents[0].seeds}} Seeds</v-card-subtitle>
                   <v-img :src="m.medium_cover_image" height="300px"></v-img>
                   <v-card-text>
                     <v-row
@@ -27,7 +27,7 @@
                         size="14"
                       ></v-rating>
 
-                      <div class="grey--text ml-4">
+                      <div class="grey--text ml-4" >
                         {{m.rating}}/10
                       </div>
                     </v-row>
@@ -40,7 +40,6 @@
                 </v-card-text>
                   <v-card-actions>
                     <v-btn v-on:click="play(m)">Play</v-btn>
-                    <v-btn color="green">Download</v-btn>
                   </v-card-actions>
               </v-card>
           </v-flex>
@@ -51,23 +50,28 @@
 <script>
   export default {
     name: 'Theatre',
-
     data: () => ({
       movies: [],
-      movie: {},
+      movie: null,
       search: '',
       client: {},
       loading: true,
       magnet: '',
-      params: '&tr=udp://open.demonii.com:1337/announce&tr=udp://tracker.openbittorrent.com:80&tr=udp://tracker.coppersurfer.tk:6969&tr=wss://tracker.openwebtorrent.com&tr=udp://glotorrents.pw:6969/announce&tr=udp://tracker.opentrackr.org:1337/announce&trudp://torrent.gresille.org:80/announce&tr=udp://p4p.arenabg.com:1337&tr=udp://tracker.leechers-paradise.org:6969'
+      trackers: '&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969%2Fannounce&tr=udp%3A%2F%2Ftracker.openbittorrent.com%3A6969%2Fannounce&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969%2Fannounce&tr=udp%3A%2F%2Ftracker.dler.org%3A6969%2Fannounce&tr=udp%3A%2F%2Fopentracker.i2p.rocks%3A6969%2Fannounce&tr=udp%3A%2F%2F47.ip-51-68-199.eu%3A6969%2Fannounce&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com',
+      wttr: '&tr=udp%3A%2F%2Fexplodie.org%3A6969&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.empire-js.us%3A1337&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com&ws=https%3A%2F%2Fwebtorrent.io%2Ftorrents%2F'
     }),
     computed: {
       magnetUrl : function () {
-        const title = encodeURIComponent(this.movie.title)
-        return `magnet:?xt=urn:btih:${this.movie.torrents[1].hash}&dn=${title}${this.params}`
+        if (this.movie != null) {
+          const title = encodeURIComponent(this.movie.title)
+          return `magnet:?xt=urn:btih:${this.movie.torrents[0].hash}&dn=${title}${this.trackers}`
+        }
+        else {
+          return ''
+        }
       },
       manualMagnetUrl : function () {
-        return this.magnet+'&tr=wss://tracker.openwebtorrent.com'
+        return this.magnet+this.wttr+encodeURI(this.trackers)
       }
     },
     created () {
@@ -75,7 +79,7 @@
       this.client = new WebTorrent()
       this.client.on('error', function (err) {console.log(err)})
 
-      fetch('https://yts.mx/api/v2/list_movies.json?sort_by=seeds')
+      fetch('https://yts.mx/api/v2/list_movies.json?order_by=seeds')
       .then(response => response.json())
       .then(data => {
         this.movies = data.data.movies
@@ -117,11 +121,12 @@
           })
 
           // Display the file by adding it to the DOM. Supports video, audio, image, etc. files
-          file.appendTo('body#movie')
+          file.appendTo('#movie')
         })
       },
       getTorrent: function () {
         this.client.add(this.magnetUrl, function (torrent) {
+          console.table(torrent)
           torrent.on('infoHash', function () {console.log('infohash')})
           console.log(torrent)
           torrent.on('metadata', function () {
@@ -140,7 +145,7 @@
           })
 
           // Display the file by adding it to the DOM. Supports video, audio, image, etc. files
-          file.appendTo('#movie')
+          file.appendTo('body')
         })
       }
     }
